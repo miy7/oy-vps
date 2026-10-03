@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum VPSStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String?
+  role         UserRole      @default(CUSTOMER)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  vps          VPS[]
+  orders       Order[]
+  payments     Payment[]
+  subscriptions Subscription[]
+  tickets      Ticket[]
+  activities   ActivityLog[]
+}
+
+model Plan {
+  id          String @id @default(cuid())
+  name        String
+  slug        String @unique
+  description String?
+  cpuCores    Int
+  memoryMb    Int
+  storageGb   Int
+  bandwidthGb Int
+  priceCents  Int
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+  vps         VPS[]
+  orders      Order[]
+}
+
+model Node {
+  id        String @id @default(cuid())
+  name      String
+  hostname  String
+  totalCpu  Int
+  totalMemoryMb Int
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+  vps       VPS[]
+}
+
+model VPS {
+  id          String @id @default(cuid())
+  name        String
+  proxmoxVmId Int?
+  status      VPSStatus @default(PENDING)
+  userId      String
+  planId      String
+  nodeId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User @relation(fields: [userId], references: [id])
+  plan        Plan @relation(fields: [planId], references: [id])
+  node        Node? @relation(fields: [nodeId], references: [id])
+  ipAddresses IPAddress[]
+}
+
+model IPAddress {
+  id        String @id @default(cuid())
+  address   String @unique
+  version   Int
+  assigned  Boolean @default(false)
+  vpsId     String?
+  vps       VPS? @relation(fields: [vpsId], references: [id])
+}
+
+model Order {
+  id        String @id @default(cuid())
+  status    OrderStatus @default(PENDING)
+  totalCents Int
+  userId    String
+  planId    String
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id])
+  plan      Plan @relation(fields: [planId], references: [id])
+  payments  Payment[]
+}
+
+model Payment {
+  id          String @id @default(cuid())
+  amountCents Int
+  provider    String?
+  providerId  String?
+  userId      String
+  orderId     String?
+  createdAt   DateTime @default(now())
+  user        User @relation(fields: [userId], references: [id])
+  order       Order? @relation(fields: [orderId], references: [id])
+}
+
+model Subscription {
+  id        String @id @default(cuid())
+  status    String
+  userId    String
+  planId    String
+  startedAt DateTime @default(now())
+  renewsAt  DateTime?
+  user      User @relation(fields: [userId], references: [id])
+}
+
+model Ticket {
+  id        String @id @default(cuid())
+  subject   String
+  status    String @default("OPEN")
+  userId    String
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id])
+}
+
+model ActivityLog {
+  id        String @id @default(cuid())
+  action    String
+  metadata  Json?
+  userId    String?
+  createdAt DateTime @default(now())
+  user      User? @relation(fields: [userId], references: [id])
+}
+
